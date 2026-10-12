@@ -8,7 +8,13 @@ export function VideoFrame({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [missing, setMissing] = useState(false);
 
-  if (missing) return <Still line={STILL_LINE} />;
+  if (missing) {
+    return (
+      <div className="frame">
+        <Still line={STILL_LINE} />
+      </div>
+    );
+  }
 
   function listen() {
     const video = videoRef.current;

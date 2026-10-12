@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { appendExchange, canEnterRoom, readMemory, writeMemory } from "@/lib/memory";
-import { attachLocalPreview, openJesusStream, type MeetCredentials } from "@/lib/meet-media";
+import { applyTurnText, attachLocalPreview, openJesusStream, type MeetCredentials, type TranscriptLine } from "@/lib/meet-media";
 import { Still } from "./Still";
 import { VideoFrame } from "./VideoFrame";
 
@@ -13,14 +13,14 @@ export function Meet() {
   const [cameraNote, setCameraNote] = useState("");
   const [liveState, setLiveState] = useState<"idle" | "yes" | "no">("idle");
   const [credentials, setCredentials] = useState<MeetCredentials | null>(null);
-  const [lines, setLines] = useState<Array<{ user: string; jesus: string }>>([]);
+  const [lines, setLines] = useState<TranscriptLine[]>([]);
+  const [needsListen, setNeedsListen] = useState(false);
   const [text, setText] = useState("");
   const [remaining, setRemaining] = useState("3:00");
   const localRef = useRef<HTMLVideoElement>(null);
   const jesusRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<ReturnType<typeof openJesusStream> | null>(null);
-  const pendingUser = useRef("");
 
   useEffect(() => {
     const memory = readMemory(window.localStorage);
@@ -46,25 +46,26 @@ export function Meet() {
     sessionRef.current = openJesusStream(
       credentials,
       video,
-      (_turnId, jesus) => {
-        const user = pendingUser.current;
+      (turnId, jesus) => {
         setLines((current) => {
-          const next = [...current];
-          const last = next[next.length - 1];
-          if (last && !last.jesus) next[next.length - 1] = { ...last, jesus };
+          const next = applyTurnText(current, turnId, jesus);
+          const line = next.find((item) => item.turnId === turnId) ?? next.find((item) => item.jesus === jesus);
+          if (line) {
+            const latest = readMemory(window.localStorage);
+            writeMemory(
+              window.localStorage,
+              appendExchange(latest, { mode: "meet", at: new Date().toISOString(), user: line.user, jesus: line.jesus }),
+            );
+          }
           return next;
         });
-        const latest = readMemory(window.localStorage);
-        writeMemory(
-          window.localStorage,
-          appendExchange(latest, { mode: "meet", at: new Date().toISOString(), user, jesus }),
-        );
       },
       (ms) => setRemaining(formatMs(ms)),
       () => {
         window.clearInterval(timer);
         leave();
       },
+      () => setNeedsListen(true),
     );
     return () => {
       window.clearInterval(timer);
@@ -94,6 +95,11 @@ export function Meet() {
   }
 
   async function ready() {
+    const video = jesusRef.current;
+    if (video) {
+      video.muted = true;
+      void Promise.resolve(video.play()).catch(() => setNeedsListen(true));
+    }
     setPhase("live");
     const memory = readMemory(window.localStorage);
     try {
@@ -117,10 +123,18 @@ export function Meet() {
   function say() {
     const message = text.trim();
     if (!message || !sessionRef.current) return;
-    pendingUser.current = message;
+    const turnId = sessionRef.current.say(message);
     setText("");
-    setLines((current) => [...current, { user: message, jesus: "" }]);
-    sessionRef.current.say(message);
+    setLines((current) => [...current, { turnId, user: message, jesus: "" }]);
+  }
+
+  function listen() {
+    const video = jesusRef.current;
+    if (!video) return;
+    video.muted = false;
+    void Promise.resolve(video.play())
+      .then(() => setNeedsListen(false))
+      .catch(() => setNeedsListen(true));
   }
 
   return (
@@ -134,14 +148,32 @@ export function Meet() {
         </>
       ) : null}
       {phase !== "intro" ? (
-        <div className="wide-meet">
+        <div className={phase === "live" ? "wide-meet live" : "wide-meet"}>
           <div className="frame">
             <video ref={localRef} playsInline muted />
           </div>
           <div className="frame">
-            {phase === "mirror" ? <Still line="When you are ready, sit as you would if I were across from you." /> : null}
-            {phase === "live" && liveState === "yes" ? <video ref={jesusRef} playsInline autoPlay /> : null}
-            {phase === "live" && liveState === "no" ? <Still line="The live meeting opens when the portrait is connected." /> : null}
+            <video
+              ref={jesusRef}
+              className={phase === "live" && liveState === "yes" ? undefined : "parked"}
+              playsInline
+              muted
+            />
+            {phase === "live" && liveState === "yes" ? null : (
+              <Still
+                line={
+                  phase === "live" && liveState === "no"
+                    ? "The live meeting opens when the portrait is connected."
+                    : "When you are ready, sit as you would if I were across from you."
+                }
+              />
+            )}
+            {needsListen && phase === "live" && liveState === "yes" ? (
+              <button className="listen" type="button" onClick={listen}>
+                Listen
+                <span aria-hidden="true">▶</span>
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { CRISIS_PORTRAIT, CRISIS_REPLY, isCrisis } from "@/lib/crisis";
 import { FALLBACK, type RoomMode } from "@/lib/persona";
 import {
   appendExchange,
@@ -50,7 +51,9 @@ export function Conversation({ mode, src }: { mode: RoomMode; src: string }) {
       });
       payload = (await response.json()) as ReplyPayload;
     } catch {
-      payload = { reply: FALLBACK[mode], portrait: memory.portrait, source: "fallback" };
+      payload = isCrisis(message)
+        ? { reply: CRISIS_REPLY, portrait: CRISIS_PORTRAIT, source: "crisis" }
+        : { reply: FALLBACK[mode], portrait: memory.portrait, source: "fallback" };
     }
     const portrait =
       payload.source === "model" || payload.source === "crisis"

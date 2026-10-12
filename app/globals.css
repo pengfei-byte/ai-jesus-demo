@@ -49,6 +49,13 @@ button, input, textarea { font: inherit; color: inherit; }
   aspect-ratio: 9 / 16;
 }
 .frame video, .frame img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.frame video.parked {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
 .still {
   width: 100%;
   height: 100%;
@@ -137,8 +144,8 @@ button, input, textarea { font: inherit; color: inherit; }
 .pip { position: absolute; right: 12px; top: 12px; width: 96px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .pip video { width: 100%; height: 100%; object-fit: cover; }
 @media (max-width: 799px) {
-  .wide-meet { position: relative; }
-  .wide-meet .frame:first-child {
+  .wide-meet.live { position: relative; }
+  .wide-meet.live .frame:first-child {
     position: absolute;
     right: 12px;
     top: 12px;

@@ -30,44 +30,72 @@ export type MeetCredentials = {
   ice_servers: RTCIceServer[];
 };
 
+export type TranscriptLine = { turnId: string; user: string; jesus: string };
+
+export function applyTurnText(lines: TranscriptLine[], turnId: string, jesus: string): TranscriptLine[] {
+  const matched = lines.findIndex((line) => line.turnId === turnId);
+  const target = matched >= 0 ? matched : lines.findIndex((line) => line.jesus === "");
+  if (target < 0) return lines;
+  return lines.map((line, index) => (index === target ? { ...line, jesus } : line));
+}
+
 export function openJesusStream(
   credentials: MeetCredentials,
   video: HTMLVideoElement,
   onText: (turnId: string, text: string) => void,
   onRemainingMs: (ms: number) => void,
   onEnd: () => void,
-): { say: (text: string) => void; close: () => void } {
+  onPlaybackBlocked?: () => void,
+): { say: (text: string) => string; close: () => void } {
   const pc = new RTCPeerConnection({ iceServers: credentials.ice_servers });
   const ws = new WebSocket(`${credentials.control_url}?session_id=${credentials.session_id}`, [
     "r2.v1",
     `r2.token.${credentials.control_token}`,
   ]);
+  let closed = false;
+  const queued: string[] = [];
 
   function send(type: string, data: Record<string, unknown>) {
+    if (closed || ws.readyState !== WebSocket.OPEN) return;
     ws.send(JSON.stringify({ type, id: `c-${Date.now()}`, data }));
+  }
+
+  function flush() {
+    if (closed || ws.readyState !== WebSocket.OPEN) return;
+    for (const body of queued) ws.send(body);
+    queued.length = 0;
   }
 
   pc.addTransceiver("video", { direction: "recvonly" });
   pc.addTransceiver("audio", { direction: "recvonly" });
   pc.ontrack = (event) => {
-    video.srcObject = event.streams[0] ?? null;
-    void video.play();
+    const track = event.track;
+    const stream = event.streams[0] ?? (track ? new MediaStream([track]) : null);
+    if (!stream) return;
+    video.srcObject = stream;
+    video.muted = false;
+    void Promise.resolve(video.play()).catch(() => onPlaybackBlocked?.());
   };
   pc.onconnectionstatechange = () => {
     if (pc.connectionState === "connected") send("media.connected", {});
     if (pc.connectionState === "failed") onEnd();
   };
 
-  ws.onopen = () => send("session.start", {});
+  ws.onopen = () => {
+    send("session.start", {});
+    flush();
+  };
   ws.onmessage = (raw) => {
     void handle(JSON.parse(String(raw.data)) as { type: string; data?: Record<string, unknown> });
   };
   ws.onerror = () => onEnd();
 
   async function handle(message: { type: string; data?: Record<string, unknown> }) {
+    if (closed) return;
     if (message.type === "session.ready") {
       await pc.setLocalDescription(await pc.createOffer());
       await waitForIce(pc);
+      if (closed) return;
       send("media.offer", { sdp: pc.localDescription?.sdp ?? "" });
     }
     if (message.type === "media.answer") {
@@ -82,9 +110,19 @@ export function openJesusStream(
 
   return {
     say(text: string) {
-      send("turn.submit", { turn_id: `turn_${crypto.randomUUID()}`, text });
+      const turnId = `turn_${crypto.randomUUID()}`;
+      const body = JSON.stringify({
+        type: "turn.submit",
+        id: `c-${Date.now()}`,
+        data: { turn_id: turnId, text },
+      });
+      if (!closed && ws.readyState === WebSocket.OPEN) ws.send(body);
+      else if (!closed) queued.push(body);
+      return turnId;
     },
     close() {
+      closed = true;
+      queued.length = 0;
       ws.onopen = null;
       ws.onmessage = null;
       ws.onerror = null;

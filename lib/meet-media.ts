@@ -85,6 +85,11 @@ export function openJesusStream(
       send("turn.submit", { turn_id: `turn_${crypto.randomUUID()}`, text });
     },
     close() {
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onerror = null;
+      pc.onconnectionstatechange = null;
+      pc.ontrack = null;
       ws.close();
       pc.close();
     },

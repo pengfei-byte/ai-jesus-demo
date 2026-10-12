@@ -20,7 +20,7 @@ export function Sanctuary({ choice }: { choice?: VideoChoice }) {
     setResolved(selectDaily(weekday, () => false));
     void probe(`daily-${weekday}.mp4`).then(async (hasDay) => {
       if (hasDay) {
-        setResolved({ kind: "file", src: `/videos/daily-${weekday}.mp4` });
+        setResolved(selectDaily(weekday, (name) => name === `daily-${weekday}.mp4`));
         return;
       }
       const hasShared = await probe("daily.mp4");

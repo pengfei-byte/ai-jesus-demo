@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Gate } from "@/components/Gate";
 import { Landing } from "@/components/Landing";
+import { Sanctuary } from "@/components/Sanctuary";
 import { homeStep, readMemory, writeMemory, type Memory } from "@/lib/memory";
 
 export default function HomePage() {
@@ -27,5 +28,5 @@ export default function HomePage() {
     );
   }
   if (step === "landing") return <Landing />;
-  return <main className="column" />;
+  return <Sanctuary />;
 }

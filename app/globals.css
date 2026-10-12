@@ -132,7 +132,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .wide-meet { display: grid; gap: 12px; }
 @media (min-width: 800px) {
   .wide-meet { grid-template-columns: 1fr 1fr; align-items: start; }
-  .meet-page .column { width: min(960px, calc(100% - 32px)); }
+  .column.meet-page { width: min(960px, calc(100% - 32px)); }
 }
 .pip { position: absolute; right: 12px; top: 12px; width: 96px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
 .pip video { width: 100%; height: 100%; object-fit: cover; }

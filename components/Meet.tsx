@@ -66,7 +66,11 @@ export function Meet() {
         leave();
       },
     );
-    return () => window.clearInterval(timer);
+    return () => {
+      window.clearInterval(timer);
+      sessionRef.current?.close();
+      sessionRef.current = null;
+    };
   }, [credentials]);
 
   async function openMirror() {
@@ -133,7 +137,6 @@ export function Meet() {
         <div className="wide-meet">
           <div className="frame">
             <video ref={localRef} playsInline muted />
-            {cameraNote ? <p>{cameraNote}</p> : null}
           </div>
           <div className="frame">
             {phase === "mirror" ? <Still line="When you are ready, sit as you would if I were across from you." /> : null}
@@ -142,6 +145,7 @@ export function Meet() {
           </div>
         </div>
       ) : null}
+      {cameraNote ? <p>{cameraNote}</p> : null}
       {phase === "mirror" ? (
         <button className="send" type="button" onClick={() => void ready()}>
           I am ready

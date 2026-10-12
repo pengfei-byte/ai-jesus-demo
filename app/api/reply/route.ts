@@ -24,12 +24,12 @@ export async function POST(request: Request): Promise<Response> {
   const message = body.message ?? "";
   const portrait = body.portrait ?? "";
 
-  if (!allow(`reply:${clientIp(request)}`, 30, HOUR, Date.now())) {
-    return Response.json({ reply: FALLBACK[mode], portrait, source: "limited" }, { status: 429 });
-  }
-
   if (isCrisis(message)) {
     return Response.json({ reply: CRISIS_REPLY, portrait: CRISIS_PORTRAIT, source: "crisis" });
+  }
+
+  if (!allow(`reply:${clientIp(request)}`, 30, HOUR, Date.now())) {
+    return Response.json({ reply: FALLBACK[mode], portrait, source: "limited" }, { status: 429 });
   }
 
   const key = process.env.DEEPSEEK_API_KEY;

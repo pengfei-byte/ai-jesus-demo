@@ -51,7 +51,7 @@ describe("POST /api/reply", () => {
 
   it("sends the server persona, not a browser persona", async () => {
     process.env.DEEPSEEK_API_KEY = "test-key";
-    const fetchMock = vi.fn(async () =>
+    const fetchMock = vi.fn(async (_url: RequestInfo | URL, init?: RequestInit) =>
       new Response(JSON.stringify({ choices: [{ message: { content: '{"reply":"Peace.","portrait":"Anna is here."}' } }] }), {
         status: 200,
         headers: { "content-type": "application/json" },
@@ -78,5 +78,18 @@ describe("POST /api/reply", () => {
     expect(response.status).toBe(429);
     expect(body.source).toBe("limited");
     expect(body.reply).toBe(FALLBACK.confess);
+  });
+
+  it("returns the crisis reply even after the hourly limit", async () => {
+    for (let i = 0; i < 30; i += 1) await call("again");
+    process.env.DEEPSEEK_API_KEY = "test-key";
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const response = await call("I want to die");
+    const body = await response.json();
+    expect(response.status).toBe(200);
+    expect(body.source).toBe("crisis");
+    expect(body.reply.startsWith("If you are in danger, get help now.")).toBe(true);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

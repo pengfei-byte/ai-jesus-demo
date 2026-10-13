@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { SCENE_PROMPT, characterPrompt } from "@/lib/persona";
 import { allow, clientIp } from "@/lib/rate-limit";
 
@@ -28,6 +30,7 @@ export async function POST(request: Request): Promise<Response> {
             hope: body.hope ?? "",
             portrait: body.portrait ?? "",
           }),
+          reference_image: referenceImage(),
         },
         scene: { prompt: SCENE_PROMPT },
         limits: { max_duration_ms: 180000 },
@@ -41,4 +44,9 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return Response.json({ live: false });
   }
+}
+
+function referenceImage(): string {
+  const bytes = readFileSync(join(process.cwd(), "public/jesus-reference.jpg"));
+  return `data:image/jpeg;base64,${bytes.toString("base64")}`;
 }

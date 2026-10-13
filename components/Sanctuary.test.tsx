@@ -4,7 +4,15 @@ import { describe, expect, it, vi } from "vitest";
 import { Sanctuary } from "./Sanctuary";
 
 vi.mock("next/link", () => ({
-  default: ({ href, children }: { href: string; children: React.ReactNode }) => <a href={href}>{children}</a>,
+  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a className={className} href={href}>
+      {children}
+    </a>
+  ),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
 }));
 
 describe("Sanctuary", () => {

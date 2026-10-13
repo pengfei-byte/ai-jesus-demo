@@ -12,15 +12,18 @@ describe("home", () => {
     expect(screen.getByRole("button", { name: "I am 18 or older" })).toBeTruthy();
   });
 
-  it("asks what to call them after they confirm", () => {
+  it("asks what to call them after they turn on the sound", () => {
     render(<HomePage />);
     fireEvent.click(screen.getByRole("button", { name: "I am 18 or older" }));
+    expect(screen.getByRole("button", { name: /Tap to turn on the sound/ })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Tap to turn on the sound/ }));
     expect(screen.getByText("What should I call you?")).toBeTruthy();
   });
 
   it("writes both answers together and shows the invitation", () => {
     render(<HomePage />);
     fireEvent.click(screen.getByRole("button", { name: "I am 18 or older" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tap to turn on the sound/ }));
     fireEvent.click(screen.getByRole("button", { name: "Skip" }));
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText("Then come in, my child.")).toBeTruthy();

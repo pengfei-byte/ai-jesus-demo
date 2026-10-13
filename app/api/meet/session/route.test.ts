@@ -45,6 +45,7 @@ describe("POST /api/meet/session", () => {
     expect(sent.limits.max_duration_ms).toBe(180000);
     expect(sent.credentials_ttl_ms).toBe(240000);
     expect(sent.character.name).toBe("Jesus");
+    expect(sent.character.reference_image).toMatch(/^data:image\/jpeg;base64,/);
     expect(sent.scene.prompt).toContain("morning linen");
     expect(body.live).toBe(true);
     expect(body.credentials.control_token).toBe("short-token");

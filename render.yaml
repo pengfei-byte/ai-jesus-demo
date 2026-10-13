@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: ai-jesus-demo
+    runtime: node
+    plan: free
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: REVERIE_API_KEY
+        sync: false
+      - key: REVERIE_BASE_URL
+        value: https://api.reverie-ai.com/api/public/v1

@@ -5,6 +5,18 @@ import { CRISIS_PORTRAIT } from "@/lib/crisis";
 import { MEMORY_KEY, type Memory } from "@/lib/memory";
 import { Conversation } from "./Conversation";
 
+vi.mock("next/link", () => ({
+  default: ({ href, children, className }: { href: string; children: React.ReactNode; className?: string }) => (
+    <a className={className} href={href}>
+      {children}
+    </a>
+  ),
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}));
+
 const ready: Memory = {
   adultConfirmed: true,
   landingComplete: true,
@@ -19,6 +31,32 @@ describe("Conversation", () => {
     window.localStorage.clear();
     window.localStorage.setItem(MEMORY_KEY, JSON.stringify(ready));
     vi.restoreAllMocks();
+  });
+
+  it("shows the user's words while Jesus is still replying", async () => {
+    let release: (response: Response) => void = () => undefined;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        () =>
+          new Promise<Response>((resolve) => {
+            release = resolve;
+          }),
+      ),
+    );
+    render(<Conversation mode="confess" src="/videos/confess.mp4" />);
+    fireEvent.change(screen.getByRole("textbox", { name: "Your words" }), { target: { value: "I lied" } });
+    fireEvent.click(screen.getByRole("button", { name: "Speak" }));
+    expect(screen.getByText("I lied").className).toContain("you");
+    expect(screen.getByText(/Jesus is replying/)).toBeTruthy();
+    release(
+      new Response(JSON.stringify({ reply: "I hear you, Anna.", portrait: "Anna spoke honestly.", source: "model" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(await screen.findByText("I hear you, Anna.")).toBeTruthy();
+    expect(screen.queryByText(/Jesus is replying/)).toBeNull();
   });
 
   it("sends the message and shows the reply", async () => {

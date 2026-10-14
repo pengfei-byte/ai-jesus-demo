@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { SCENE_PROMPT, characterPrompt } from "@/lib/persona";
 import { allow, clientIp } from "@/lib/rate-limit";
 
@@ -21,21 +19,7 @@ export async function POST(request: Request): Promise<Response> {
         Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: "r2-realtime-v1",
-        character: {
-          name: "Jesus",
-          prompt: characterPrompt({
-            name: body.name ?? "",
-            hope: body.hope ?? "",
-            portrait: body.portrait ?? "",
-          }),
-          reference_image: referenceImage(),
-        },
-        scene: { prompt: SCENE_PROMPT },
-        limits: { max_duration_ms: 180000 },
-        credentials_ttl_ms: 240000,
-      }),
+      body: JSON.stringify(sessionBody(request, body)),
     });
     if (!upstream.ok) return Response.json({ live: false });
     const data = (await upstream.json()) as { credentials?: unknown };
@@ -46,7 +30,36 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-function referenceImage(): string {
-  const bytes = readFileSync(join(process.cwd(), "public/jesus-reference.jpg"));
-  return `data:image/jpeg;base64,${bytes.toString("base64")}`;
+function sessionBody(request: Request, body: { name?: string; hope?: string; portrait?: string }) {
+  const seed = seedImageUrl(request);
+  return {
+    model: "r2-realtime-v1",
+    character: {
+      name: "Jesus",
+      prompt: characterPrompt({
+        name: body.name ?? "",
+        hope: body.hope ?? "",
+        portrait: body.portrait ?? "",
+      }),
+    },
+    scene: { prompt: SCENE_PROMPT },
+    ...(seed ? { seed_image_url: seed } : {}),
+    limits: { max_duration_ms: 180000 },
+    credentials_ttl_ms: 240000,
+  };
+}
+
+function seedImageUrl(request: Request): string | null {
+  const origin = publicOrigin(request);
+  return origin ? `${origin}/jesus-reference.jpg` : null;
+}
+
+function publicOrigin(request: Request): string {
+  const render = process.env.RENDER_EXTERNAL_URL?.trim().replace(/\/$/, "") ?? "";
+  if (render) return render;
+  const forwarded = request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
+  const host = forwarded || request.headers.get("host") || "";
+  if (!host || /localhost|127\.0\.0\.1/i.test(host)) return "";
+  const proto = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() || "https";
+  return `${proto}://${host}`;
 }

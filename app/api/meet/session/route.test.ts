@@ -17,6 +17,7 @@ describe("POST /api/meet/session", () => {
     resetLimits();
     delete process.env.REVERIE_API_KEY;
     delete process.env.REVERIE_BASE_URL;
+    delete process.env.RENDER_EXTERNAL_URL;
     vi.restoreAllMocks();
   });
 
@@ -27,6 +28,7 @@ describe("POST /api/meet/session", () => {
 
   it("asks Reverie for a three-minute Jesus session and hides the key", async () => {
     process.env.REVERIE_API_KEY = "reverie-test-key";
+    process.env.RENDER_EXTERNAL_URL = "https://ai-jesus-demo.onrender.com";
     const fetchMock = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) =>
       new Response(
         JSON.stringify({
@@ -45,7 +47,8 @@ describe("POST /api/meet/session", () => {
     expect(sent.limits.max_duration_ms).toBe(180000);
     expect(sent.credentials_ttl_ms).toBe(240000);
     expect(sent.character.name).toBe("Jesus");
-    expect(sent.character.reference_image).toMatch(/^data:image\/jpeg;base64,/);
+    expect(sent.seed_image_url).toBe("https://ai-jesus-demo.onrender.com/jesus-reference.jpg");
+    expect(sent.character.reference_image).toBeUndefined();
     expect(sent.scene.prompt).toContain("morning linen");
     expect(body.live).toBe(true);
     expect(body.credentials.control_token).toBe("short-token");

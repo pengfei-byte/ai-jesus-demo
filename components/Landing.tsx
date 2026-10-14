@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { inviteLine } from "@/lib/copy";
 import { readMemory, writeMemory } from "@/lib/memory";
 import { STILL_LINE } from "@/lib/videos";
@@ -8,12 +8,19 @@ import { Still } from "./Still";
 
 export function Landing() {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const nameRef = useRef<HTMLTextAreaElement>(null);
+  const hopeRef = useRef<HTMLTextAreaElement>(null);
   const [phase, setPhase] = useState<"name" | "hope" | "invite">("name");
   const [name, setName] = useState("");
   const [hope, setHope] = useState("");
   const [soundOn, setSoundOn] = useState(false);
   const [missing, setMissing] = useState(false);
   const [ended, setEnded] = useState(false);
+
+  useEffect(() => {
+    const field = phase === "name" ? nameRef.current : hopeRef.current;
+    if (field) fitField(field);
+  }, [phase, name, hope]);
 
   function begin() {
     const video = videoRef.current;
@@ -87,7 +94,15 @@ export function Landing() {
               }}
             >
               <p>What should I call you?</p>
-              <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
+              <textarea
+                ref={nameRef}
+                className="field"
+                aria-label="What should I call you?"
+                rows={1}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onKeyDown={(event) => submitOnEnter(event, () => setPhase("hope"))}
+              />
               <div className="landing-actions">
                 <button
                   className="text-btn skip"
@@ -113,7 +128,15 @@ export function Landing() {
               }}
             >
               <p>What are you hoping to find here?</p>
-              <input className="field" value={hope} onChange={(event) => setHope(event.target.value)} />
+              <textarea
+                ref={hopeRef}
+                className="field"
+                aria-label="What are you hoping to find here?"
+                rows={1}
+                value={hope}
+                onChange={(event) => setHope(event.target.value)}
+                onKeyDown={(event) => submitOnEnter(event, () => save(name, hope))}
+              />
               <div className="landing-actions">
                 <button className="text-btn" type="submit">
                   Continue
@@ -135,4 +158,19 @@ export function Landing() {
       </div>
     </main>
   );
+}
+
+function submitOnEnter(event: KeyboardEvent<HTMLTextAreaElement>, submit: () => void) {
+  if (event.key !== "Enter" || event.shiftKey) return;
+  event.preventDefault();
+  submit();
+}
+
+function fitField(node: HTMLTextAreaElement) {
+  if (!node.value) {
+    node.style.height = "";
+    return;
+  }
+  node.style.height = "auto";
+  node.style.height = `${node.scrollHeight}px`;
 }

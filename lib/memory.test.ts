@@ -90,10 +90,9 @@ describe("memory", () => {
   });
 
   it("routes home from memory", () => {
-    expect(homeStep(base)).toBe("gate");
-    expect(homeStep({ ...base, adultConfirmed: true })).toBe("landing");
-    expect(homeStep({ ...base, adultConfirmed: true, landingComplete: true })).toBe("sanctuary");
-    expect(canEnterRoom({ ...base, adultConfirmed: true, landingComplete: true })).toBe(true);
-    expect(canEnterRoom({ ...base, adultConfirmed: true })).toBe(false);
+    expect(homeStep(base)).toBe("landing");
+    expect(homeStep({ ...base, landingComplete: true })).toBe("sanctuary");
+    expect(canEnterRoom({ ...base, landingComplete: true })).toBe(true);
+    expect(canEnterRoom(base)).toBe(false);
   });
 });

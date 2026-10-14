@@ -86,12 +86,11 @@ export function forgetMemory(store: KeyValueStore): void {
   store.removeItem(MEMORY_KEY);
 }
 
-export function homeStep(memory: Memory): "gate" | "landing" | "sanctuary" {
-  if (!memory.adultConfirmed) return "gate";
+export function homeStep(memory: Memory): "landing" | "sanctuary" {
   if (!memory.landingComplete) return "landing";
   return "sanctuary";
 }
 
 export function canEnterRoom(memory: Memory): boolean {
-  return memory.adultConfirmed && memory.landingComplete;
+  return memory.landingComplete;
 }

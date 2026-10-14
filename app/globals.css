@@ -232,12 +232,29 @@ button, input, textarea { font: inherit; color: inherit; }
   text-shadow: 0 2px 14px rgba(20, 14, 10, 0.72);
 }
 .landing-sheet .field {
-  color: var(--text);
+  display: block;
+  width: 100%;
+  margin: 14px 0 0;
+  height: 38px;
+  min-height: 38px;
+  max-height: 120px;
+  padding: 7px 12px;
+  resize: none;
+  overflow: auto;
+  border-radius: 12px;
+  background: transparent;
+  border: 1px solid #e6d2a8;
+  color: #fffdf9;
+  caret-color: #e6d2a8;
+  text-align: left;
+  line-height: 22px;
   font-family: var(--sans);
   font-size: 16px;
   font-weight: 400;
   text-shadow: none;
 }
+.landing-sheet .field::placeholder { color: rgba(255, 253, 249, 0.55); }
+.landing-sheet .field:focus { outline: none; border-color: #e6d2a8; }
 .landing-actions {
   display: flex;
   justify-content: space-between;

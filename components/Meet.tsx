@@ -4,12 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { CRISIS_PORTRAIT, CRISIS_REPLY, isCrisis } from "@/lib/crisis";
 import { appendExchange, canEnterRoom, readMemory, withPortrait, writeMemory } from "@/lib/memory";
 import { applyTurnText, attachLocalPreview, openJesusStream, type MeetCredentials, type TranscriptLine } from "@/lib/meet-media";
+import { greetingRequest, OPENING_COUNT, openingFor } from "@/lib/openings";
+import { speechHoldMs, watchRemoteSpeech } from "@/lib/remote-speech";
 import { playAloud } from "@/lib/stage-nav";
 import { RoomChat } from "./RoomChat";
 import { StageLink } from "./StageLink";
 
 type Phase = "intro" | "call";
-type Line = TranscriptLine & { key: number };
+type Line = TranscriptLine & { key: number; opening?: boolean };
 type Waiting = { key: number; message: string };
 
 export function Meet() {
@@ -23,6 +25,8 @@ export function Meet() {
   const [needsListen, setNeedsListen] = useState(false);
   const [text, setText] = useState("");
   const [remaining, setRemaining] = useState("3:00");
+  const [held, setHeld] = useState(false);
+  const [heard, setHeard] = useState(false);
   const introRef = useRef<HTMLVideoElement>(null);
   const localRef = useRef<HTMLVideoElement>(null);
   const jesusRef = useRef<HTMLVideoElement>(null);
@@ -34,7 +38,15 @@ export function Meet() {
   const linkRef = useRef<"opening" | "yes" | "no">("opening");
   const triesRef = useRef(0);
   const linesRef = useRef<Line[]>([]);
+  const greetedRef = useRef(false);
+  const holdTimer = useRef(0);
+  const holdForRef = useRef<(ms: number) => void>(() => undefined);
   linesRef.current = lines;
+  holdForRef.current = (ms: number) => {
+    window.clearTimeout(holdTimer.current);
+    setHeld(true);
+    holdTimer.current = window.setTimeout(() => setHeld(false), ms);
+  };
 
   useEffect(() => {
     const memory = readMemory(window.localStorage);
@@ -48,6 +60,7 @@ export function Meet() {
 
   useEffect(() => {
     return () => {
+      window.clearTimeout(holdTimer.current);
       sessionRef.current?.close();
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
@@ -73,10 +86,15 @@ export function Meet() {
       video,
       (turnId, jesus) => {
         setLines((current) => {
-          const before = current.find((line) => line.turnId === turnId)?.jesus ?? "";
+          const existing = current.find((line) => line.turnId === turnId);
+          if (existing?.opening) return current;
+          const before = existing?.jesus ?? "";
           const next = applyTurnText(current, turnId, jesus).map((item, index) => ({ ...current[index], ...item }));
           const line = next.find((item) => item.turnId === turnId);
-          if (!before && line?.jesus) remember(line.user, line.jesus);
+          if (!before && line?.jesus) {
+            remember(line.user, line.jesus);
+            holdForRef.current(speechHoldMs(line.jesus));
+          }
           return next;
         });
       },
@@ -105,6 +123,7 @@ export function Meet() {
     );
     sessionRef.current = session;
     linkRef.current = "yes";
+    greet(session);
     const waiting = waitingRef.current;
     waitingRef.current = [];
     for (const item of waiting) {
@@ -113,10 +132,23 @@ export function Meet() {
     }
     return () => {
       window.clearInterval(timer);
-      sessionRef.current?.close();
-      sessionRef.current = null;
+      greetedRef.current = false;
+      session.close();
+      if (sessionRef.current === session) sessionRef.current = null;
     };
   }, [credentials]);
+
+  useEffect(() => {
+    const video = jesusRef.current;
+    if (phase !== "call" || !live || !video) return;
+    return watchRemoteSpeech(video, (speaking) => {
+      setHeard(speaking);
+      if (!speaking) {
+        window.clearTimeout(holdTimer.current);
+        setHeld(false);
+      }
+    });
+  }, [phase, live]);
 
   async function openCall() {
     setPhase("call");
@@ -186,8 +218,18 @@ export function Meet() {
     window.location.assign("/");
   }
 
-  async function speak() {
-    const message = text.trim();
+  function greet(session: { say: (text: string) => string }) {
+    if (greetedRef.current) return;
+    greetedRef.current = true;
+    const line = openingFor(readMemory(window.localStorage).name, Math.floor(Math.random() * OPENING_COUNT));
+    const key = lineKey.current++;
+    const turnId = session.say(greetingRequest(line));
+    setLines((current) => [{ key, turnId, user: "", jesus: line, opening: true }, ...current.filter((item) => !item.opening)]);
+    holdForRef.current(speechHoldMs(line));
+  }
+
+  async function speak(incoming?: string) {
+    const message = (incoming ?? text).trim();
     if (!message) return;
     const key = lineKey.current++;
     setText("");
@@ -196,6 +238,7 @@ export function Meet() {
       remember(message, CRISIS_REPLY, CRISIS_PORTRAIT);
       return;
     }
+    holdForRef.current(12000);
     if (sessionRef.current) {
       const turnId = sessionRef.current.say(message);
       setLines((current) => [...current, { key, turnId, user: message, jesus: "" }]);
@@ -292,12 +335,14 @@ export function Meet() {
             Return
           </StageLink>
           <RoomChat
-            lines={lines}
+            lines={lines.slice(-1)}
             text={text}
             placeholder="What would you like to say?"
             voice
+            ear={!held && !heard}
             onText={setText}
             onSpeak={() => void speak()}
+            onUtterance={(said) => void speak(said)}
           />
           {needsListen ? (
             <button className="listen" type="button" onClick={listen}>

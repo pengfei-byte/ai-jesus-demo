@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { startVoiceInput, type SpeechLike } from "./voice-input";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { startVoiceInput, type SpeechEvent, type SpeechLike } from "./voice-input";
 
 describe("startVoiceInput", () => {
   it("puts the spoken words into the field and can stop", () => {
@@ -37,4 +37,60 @@ describe("startVoiceInput", () => {
   it("does nothing when the browser has no speech recognition", () => {
     expect(startVoiceInput(undefined, () => undefined, () => undefined)).toBeNull();
   });
+
+  it("sends after a pause and ignores words heard while Jesus is speaking", () => {
+    vi.useFakeTimers();
+    const heard: string[] = [];
+    const sent: string[] = [];
+    const rec = fakeRecognizer();
+    const session = startVoiceInput(asCtor(rec), (text) => heard.push(text), () => undefined, {
+      pauseMs: 1500,
+      onPause: (text) => sent.push(text),
+    });
+    emit(rec, ["hello there"]);
+    vi.advanceTimersByTime(1499);
+    expect(sent).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(sent).toEqual(["hello there"]);
+
+    session?.hold();
+    emit(rec, ["hello there", " peace to you"]);
+    expect(heard.at(-1)).toBe("");
+    expect(sent).toEqual(["hello there"]);
+
+    session?.release();
+    emit(rec, ["hello there", " peace to you", " I am tired"]);
+    expect(heard.at(-1)).toBe("I am tired");
+    vi.useRealTimers();
+  });
+});
+
+function emit(rec: SpeechLike, transcripts: string[]) {
+  const results = transcripts.map((transcript) => ({ 0: { transcript } }));
+  rec.onresult?.({ results } as SpeechEvent);
+}
+
+function fakeRecognizer(): SpeechLike {
+  return {
+    lang: "",
+    interimResults: false,
+    continuous: false,
+    onresult: null,
+    onend: null,
+    onerror: null,
+    start() {},
+    stop() {
+      this.onend?.();
+    },
+  };
+}
+
+function asCtor(rec: SpeechLike): new () => SpeechLike {
+  return function Ctor(this: SpeechLike) {
+    return rec;
+  } as unknown as new () => SpeechLike;
+}
+
+afterEach(() => {
+  vi.useRealTimers();
 });

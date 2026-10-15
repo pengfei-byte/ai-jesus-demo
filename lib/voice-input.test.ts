@@ -63,6 +63,16 @@ describe("startVoiceInput", () => {
     expect(heard.at(-1)).toBe("I am tired");
     vi.useRealTimers();
   });
+
+  it("hears the next sentence after the browser starts a fresh recognition", () => {
+    const heard: string[] = [];
+    const rec = fakeRecognizer();
+    startVoiceInput(asCtor(rec), (text) => heard.push(text), () => undefined);
+    emit(rec, ["hello there"]);
+    rec.onend?.();
+    emit(rec, ["peace to you"]);
+    expect(heard.at(-1)).toBe("peace to you");
+  });
 });
 
 function emit(rec: SpeechLike, transcripts: string[]) {

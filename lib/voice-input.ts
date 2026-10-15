@@ -22,15 +22,13 @@ export function startVoiceInput(
   options?: { pauseMs?: number; onPause?: (text: string) => void },
 ): { stop: () => void; hold: () => void; release: () => void; commit: () => void } | null {
   if (!Ctor) return null;
-  const rec = new Ctor();
-  rec.lang = "en-US";
-  rec.interimResults = true;
-  rec.continuous = true;
+  const Recognition = Ctor;
   let userStop = false;
   let paused = false;
   let skip = 0;
   let seen = 0;
   let latest = "";
+  let current: SpeechLike | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const pauseMs = options?.pauseMs ?? PAUSE_MS;
 
@@ -40,42 +38,58 @@ export function startVoiceInput(
     return text.trim();
   }
 
-  rec.onresult = (event) => {
-    seen = event.results.length;
-    if (paused) {
-      skip = seen;
-      return;
-    }
-    latest = heard(event);
-    onText(latest);
-    if (!options?.onPause || !latest) return;
-    globalThis.clearTimeout(timer);
-    timer = globalThis.setTimeout(() => {
-      const said = latest;
-      latest = "";
-      skip = seen;
-      if (said && !paused) options.onPause?.(said);
-    }, pauseMs);
-  };
-  rec.onend = () => {
-    if (userStop) {
-      onEnd();
-      return;
-    }
-    try {
-      rec.start();
-    } catch {
-      onEnd();
-    }
-  };
-  rec.onerror = () => undefined;
-  rec.start();
+  function listen() {
+    const rec = new Recognition();
+    current = rec;
+    rec.lang = "en-US";
+    rec.interimResults = true;
+    rec.continuous = true;
+    rec.onresult = (event) => {
+      seen = event.results.length;
+      if (paused) {
+        skip = seen;
+        return;
+      }
+      latest = heard(event);
+      onText(latest);
+      if (!options?.onPause || !latest) return;
+      globalThis.clearTimeout(timer);
+      timer = globalThis.setTimeout(() => {
+        const said = latest;
+        latest = "";
+        skip = seen;
+        if (said && !paused) options.onPause?.(said);
+      }, pauseMs);
+    };
+    rec.onend = () => {
+      if (current !== rec) return;
+      if (userStop) {
+        onEnd();
+        return;
+      }
+      skip = 0;
+      seen = 0;
+      try {
+        listen();
+      } catch {
+        onEnd();
+      }
+    };
+    rec.onerror = () => undefined;
+    rec.start();
+  }
+
+  listen();
 
   return {
     stop() {
       userStop = true;
       globalThis.clearTimeout(timer);
-      rec.stop();
+      try {
+        current?.stop();
+      } catch {
+        onEnd();
+      }
     },
     hold() {
       paused = true;

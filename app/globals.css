@@ -297,6 +297,8 @@ button, input, textarea { font: inherit; color: inherit; }
   text-shadow: 0 1px 8px rgba(20, 14, 10, 0.55);
 }
 .room-veil { height: 64%; }
+.meet-veil { height: 46%; }
+.frame.call .room-lines { max-height: 168px; }
 .room-lines {
   max-height: 280px;
   overflow: auto;

@@ -339,6 +339,7 @@ export function Meet() {
             text={text}
             placeholder="What would you like to say?"
             voice
+            veil="meet-veil"
             ear={!held && !heard}
             onText={setText}
             onSpeak={() => void speak()}

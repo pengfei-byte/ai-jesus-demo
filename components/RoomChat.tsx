@@ -11,6 +11,7 @@ export function RoomChat({
   placeholder,
   voice,
   ear = true,
+  veil = "room-veil",
   onText,
   onSpeak,
   onUtterance,
@@ -20,6 +21,7 @@ export function RoomChat({
   placeholder?: string;
   voice?: boolean;
   ear?: boolean;
+  veil?: string;
   onText: (value: string) => void;
   onSpeak: () => void;
   onUtterance?: (text: string) => void;
@@ -83,7 +85,7 @@ export function RoomChat({
 
   return (
     <>
-      <div className={lines.length ? "landing-veil room-veil" : "landing-veil"} aria-hidden="true" />
+      <div className={lines.length ? `landing-veil ${veil}` : "landing-veil"} aria-hidden="true" />
       <div className="landing-sheet room-sheet">
         {lines.length ? (
           <div className="room-lines" ref={listRef}>

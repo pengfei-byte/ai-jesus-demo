@@ -87,6 +87,7 @@ describe("Meet", () => {
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
     const greeting = (await screen.findByText(/Anna/)).textContent ?? "";
     expect(greeting).toContain("Anna");
+    expect(document.querySelector(".meet-veil")).toBeTruthy();
     expect(screen.queryByText(/I just sat down/)).toBeNull();
     expect(screen.queryByText(/exactly these words/)).toBeNull();
 

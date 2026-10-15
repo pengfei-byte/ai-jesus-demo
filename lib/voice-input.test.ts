@@ -55,12 +55,31 @@ describe("startVoiceInput", () => {
 
     session?.hold();
     emit(rec, ["hello there", " peace to you"]);
-    expect(heard.at(-1)).toBe("");
+    expect(heard.at(-1)).toBe("hello there");
     expect(sent).toEqual(["hello there"]);
 
     session?.release();
     emit(rec, ["hello there", " peace to you", " I am tired"]);
     expect(heard.at(-1)).toBe("I am tired");
+    vi.useRealTimers();
+  });
+
+  it("keeps a finished sentence when the next recognition emits a fragment", () => {
+    vi.useFakeTimers();
+    const heard: string[] = [];
+    const sent: string[] = [];
+    const rec = fakeRecognizer();
+    startVoiceInput(asCtor(rec), (text) => heard.push(text), () => undefined, {
+      pauseMs: 1500,
+      onPause: (text) => sent.push(text),
+    });
+    emit(rec, ["second sentence"]);
+    rec.onend?.();
+    vi.advanceTimersByTime(250);
+    emit(rec, ["uh"]);
+    expect(heard.at(-1)).toBe("second sentence");
+    vi.advanceTimersByTime(1500);
+    expect(sent).toEqual(["second sentence"]);
     vi.useRealTimers();
   });
 

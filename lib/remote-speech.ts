@@ -54,16 +54,19 @@ export function watchRemoteSpeech(video: HTMLVideoElement, onSpeaking: (speaking
     const samples = new Uint8Array(analyser.fftSize);
     let speaking = false;
     let quietAt = 0;
+    let loudCount = 0;
     poll = window.setInterval(() => {
       analyser.getByteTimeDomainData(samples);
       if (isLoud(samples)) {
         quietAt = 0;
-        if (!speaking) {
+        loudCount += 1;
+        if (!speaking && loudCount >= 3) {
           speaking = true;
           onSpeaking(true);
         }
         return;
       }
+      loudCount = 0;
       if (!speaking) return;
       if (!quietAt) quietAt = Date.now();
       if (Date.now() - quietAt >= 700) {

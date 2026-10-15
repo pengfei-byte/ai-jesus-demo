@@ -28,8 +28,11 @@ export function startVoiceInput(
   let skip = 0;
   let seen = 0;
   let latest = "";
+  let epoch = 0;
+  let draftEpoch = -1;
   let current: SpeechLike | null = null;
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let restartTimer: ReturnType<typeof setTimeout> | undefined;
   const pauseMs = options?.pauseMs ?? PAUSE_MS;
 
   function heard(event: SpeechEvent): string {
@@ -38,28 +41,36 @@ export function startVoiceInput(
     return text.trim();
   }
 
+  function flush() {
+    if (paused || !latest) return;
+    const said = latest;
+    latest = "";
+    draftEpoch = -1;
+    skip = seen;
+    options?.onPause?.(said);
+  }
+
   function listen() {
     const rec = new Recognition();
+    const mine = ++epoch;
     current = rec;
     rec.lang = "en-US";
     rec.interimResults = true;
     rec.continuous = true;
     rec.onresult = (event) => {
       seen = event.results.length;
-      if (paused) {
+      if (paused || (draftEpoch >= 0 && mine !== draftEpoch)) {
         skip = seen;
         return;
       }
-      latest = heard(event);
+      const text = heard(event);
+      if (!text) return;
+      latest = text;
+      draftEpoch = mine;
       onText(latest);
-      if (!options?.onPause || !latest) return;
+      if (!options?.onPause) return;
       globalThis.clearTimeout(timer);
-      timer = globalThis.setTimeout(() => {
-        const said = latest;
-        latest = "";
-        skip = seen;
-        if (said && !paused) options.onPause?.(said);
-      }, pauseMs);
+      timer = globalThis.setTimeout(flush, pauseMs);
     };
     rec.onend = () => {
       if (current !== rec) return;
@@ -69,11 +80,15 @@ export function startVoiceInput(
       }
       skip = 0;
       seen = 0;
-      try {
-        listen();
-      } catch {
-        onEnd();
-      }
+      globalThis.clearTimeout(restartTimer);
+      restartTimer = globalThis.setTimeout(() => {
+        if (userStop) return;
+        try {
+          listen();
+        } catch {
+          onEnd();
+        }
+      }, 250);
     };
     rec.onerror = () => undefined;
     rec.start();
@@ -85,6 +100,7 @@ export function startVoiceInput(
     stop() {
       userStop = true;
       globalThis.clearTimeout(timer);
+      globalThis.clearTimeout(restartTimer);
       try {
         current?.stop();
       } catch {
@@ -94,16 +110,17 @@ export function startVoiceInput(
     hold() {
       paused = true;
       skip = seen;
-      latest = "";
-      globalThis.clearTimeout(timer);
-      onText("");
     },
     release() {
       paused = false;
+      if (!latest || !options?.onPause) return;
+      globalThis.clearTimeout(timer);
+      timer = globalThis.setTimeout(flush, pauseMs);
     },
     commit() {
       skip = seen;
       latest = "";
+      draftEpoch = -1;
       globalThis.clearTimeout(timer);
     },
   };
